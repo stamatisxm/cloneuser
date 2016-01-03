@@ -1,0 +1,95 @@
+#!/bin/bash
+
+#
+#    cloneuser - { Command Line User Cloning Utility }
+#    Copyright (C) 2013-2014  Stamatis X. Mavrogeorgis
+#
+#    Author's Email: stamatis@zirconix.net
+#    Author's Website: http://www.istos.info
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+# version 1.0.0 - Initial Program
+
+showVersion() {
+  echo $(grep '^# version' $(which ${0##*/}) | cut -f3 -d\  | sort -u | tail -1)
+}
+
+[ "$1" = "-V" ] && showVersion && exit
+
+[[ $UID -ne 0 ]] && echo "You need to run this as root" && exit 127
+
+[ $# -lt 2 ] && echo -e "\e[1;37mUsage: ${0##*/} [olduser] [newuser]\e[0m" && exit 127
+oUser=$1
+cUser=$2
+
+passwdFile="/etc/passwd"
+shadowFile="/etc/shadow"
+
+checkOUser=$(id -G $oUser 2>/dev/null)
+checkCUser=$(id -a $cUser 2>/dev/null)
+
+[ -z "$checkOUser" ] && echo -e "\e[1;36m$oUser\e[1;31m: No such user in this system!\e[0m" && exit 128
+[ -n "$checkCUser" ] && echo -e "\e[1;37m$cUser\e[1;31m: User already exists!\e[0m" && exit 129
+
+passwdGrepOUser=$(grep ^$oUser: $passwdFile)
+shadowGrepOUser=$(grep ^$oUser: $shadowFile)
+
+oUserDir=$(echo $passwdGrepOUser | cut -f6 -d\:)
+oUserShell=$(echo $passwdGrepOUser | cut -f7 -d\:)
+cUserShell=$oUserShell
+homeDir=$(dirname $oUserDir)
+cUserDir=$homeDir/$cUser
+
+[ -d "$cUserDir" ] && cUserDir="${cUserDir}.$(date "+%Y%m%d%H%M%S")"
+
+sGroups=$(echo $checkOUser | cut -f2- -d' ' | tr ' ' ',')
+xGroup=$(id -g $oUser)
+
+echo -ne "\e[1;33mInclude \e[1;36m${oUser}'s \e[1;33mgroup in \e[1;37m${cUser}'s \e[1;33mgroups or as primary?(y|n|p|Q): \e[0m"
+read response
+
+[ -z "$response" ] && response="q"
+
+[ "$response" = "Y" ] || [ "$response" = "y" ] \
+&& sGroups=${xGroup},${sGroups} \
+&& useradd -G $sGroups -d $cUserDir -m -k /etc/skel -s $cUserShell $cUser \
+&& echo -e "\e[1;32mUser \e[1;37m$cUser \e[1;32mcreated successfully!
+\e[1;33mDetails: $(grep ^$cUser: $passwdFile)"
+
+[ "$response" = "N" ] || [ "$response" = "n" ] \
+&& useradd -G $sGroups -d $cUserDir -m -k /etc/skel -s $cUserShell $cUser \
+&& echo -e "\e[1;32mUser \e[1;37m$cUser \e[1;32mcreated successfully!
+\e[1;33mDetails: $(grep ^$cUser: $passwdFile)"
+
+[ "$response" = "P" ] || [ "$response" = "p" ] \
+&& useradd -g $xGroup -G $sGroups -d $cUserDir -m -k /etc/skel -s $cUserShell $cUser \
+&& echo -e "\e[1;32mUser \e[1;37m$cUser \e[1;32mcreated successfully!
+\e[1;33mDetails: $(grep ^$cUser: $passwdFile)"
+
+[ "$response" = "Q" ] || [ "$response" = "q" ] \
+&& echo -e "\e[1;31mAborting... User \e[1;37m$cUser \e[1;31mnot created!\e[0m" && exit 130
+
+echo -ne "\e[1;33mSet a password for user \e[1;37m$cUser \e[1;33mnow?(Y|n): \e[0m"
+read response
+
+[ -z "$response" ] && response="y"
+
+echo -e "\e[1;37m"
+[ "$response" = "Y" ] || [ "$response" = "y" ] && passwd $cUser
+echo -e "\e[0m"
+
+[ "$response" = "N" ] || [ "$response" = "n" ] && echo -e "\e[1;31mPassword for user \e[1;37m$cUser \e[1;31mhas not been set\e[0m"
+
