@@ -57,7 +57,7 @@ cUserDir=$homeDir/$cUser
 sGroups=$(echo $checkOUser | cut -f2- -d' ' | tr ' ' ',')
 xGroup=$(id -g $oUser)
 
-echo -ne "\e[1;33mInclude \e[1;36m${oUser}'s \e[1;33mgroup in \e[1;37m${cUser}'s \e[1;33mgroups or as primary?(y|n|p|Q): \e[0m"
+echo -ne "\e[1;33mInclude \e[1;36m${oUser}'s \e[1;33mgroup in \e[1;37m${cUser}'s \e[1;33mgroups or as primary?(y|p|n|Q): \e[0m"
 read response
 
 [ -z "$response" ] && response="q"
